@@ -160,39 +160,54 @@ makeDataResponse = () => {
   microseconds += Math.floor((now - before) / 1000);
   before = now;
   writeUInt48LE(output, microseconds, 68);
-  // -- gyro const moving
-  sinIncrement += 0.001;
-  let sin = Math.sin(sinIncrement).toFixed(12);
-  // Acceleration X
-  output.writeFloatLE(sin, 76);
-  // Acceleration Y
-  output.writeFloatLE(sin, 80);
-  // Acceleration Z
-  output.writeFloatLE(sin, 84);
-  // Gyroscope Pitch
-  output.writeFloatLE(sin * 100, 88);
-  // Gyroscope Yaw
-  output.writeFloatLE(sin * 100, 92);
-  // Gyroscope Roll
-  output.writeFloatLE(sin * 100, 96);
-  
-  // // -- gyro shake
+  // -- gyro
   // // Acceleration X
-  // output.writeFloatLE(data.accelerationX, 76);
+  // output.writeFloatLE(0, 76);
   // // Acceleration Y
-  // output.writeFloatLE(data.accelerationY, 80);
+  // output.writeFloatLE(0, 80);
   // // Acceleration Z
-  // output.writeFloatLE(data.accelerationZ, 84);
+  // output.writeFloatLE(0, 84);
   // // Gyroscope Pitch
-  // output.writeFloatLE(data.gyroscopePitch, 88);
+  // output.writeFloatLE(0, 88);
   // // Gyroscope Yaw
-  // output.writeFloatLE(data.gyroscopeYaw, 92);
+  // output.writeFloatLE(0, 92);
   // // Gyroscope Roll
-  // output.writeFloatLE(data.gyroscopeRoll, 96);
-  // // switch data
-  // if (packetNumber % 80 === 0) {
-  //   data = data === data1 ? data2 : data1;
-  // }
+  // output.writeFloatLE(0, 96);
+
+
+  // // -- gyro const moving
+  // sinIncrement += 0.001;
+  // let sin = Math.sin(sinIncrement).toFixed(12);
+  // // Acceleration X
+  // output.writeFloatLE(sin, 76);
+  // // Acceleration Y
+  // output.writeFloatLE(sin, 80);
+  // // Acceleration Z
+  // output.writeFloatLE(sin, 84);
+  // // Gyroscope Pitch
+  // output.writeFloatLE(sin * 100, 88);
+  // // Gyroscope Yaw
+  // output.writeFloatLE(sin * 100, 92);
+  // // Gyroscope Roll
+  // output.writeFloatLE(sin * 100, 96);
+  
+  // -- gyro shake
+  // Acceleration X
+  output.writeFloatLE(data.accelerationX, 76);
+  // Acceleration Y
+  output.writeFloatLE(data.accelerationY, 80);
+  // Acceleration Z
+  output.writeFloatLE(data.accelerationZ, 84);
+  // Gyroscope Pitch
+  output.writeFloatLE(data.gyroscopePitch, 88);
+  // Gyroscope Yaw
+  output.writeFloatLE(data.gyroscopeYaw, 92);
+  // Gyroscope Roll
+  output.writeFloatLE(data.gyroscopeRoll, 96);
+  // switch data
+  if (packetNumber % 80 === 0) {
+    data = data === data1 ? data2 : data1;
+  }
 
   output.writeUInt32LE(crc32.unsigned(output), 8);
 
