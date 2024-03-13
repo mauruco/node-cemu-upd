@@ -112,14 +112,13 @@ client.on('message', (msg, rinfo) => {
   // console.log('Second Touch X: ', secondTouchX);
   // console.log('Second Touch Y: ', secondTouchY);
   // console.log('Timestamp: ', timestamp);
-  console.log('Acceleration X: ', accelerationX);
-  console.log('Acceleration Y: ', accelerationY);
-  console.log('Acceleration Z: ', accelerationZ);
-  console.log('Gyroscope Pitch: ', gyroscopePitch);
-  console.log('Gyroscope Yaw: ', gyroscopeYaw);
-  console.log('Gyroscope Roll: ', gyroscopeRoll);
-  console.log('MSG <<<<<<');
-
+  // console.log('Acceleration X: ', accelerationX);
+  // console.log('Acceleration Y: ', accelerationY);
+  // console.log('Acceleration Z: ', accelerationZ);
+  // console.log('Gyroscope Pitch: ', gyroscopePitch);
+  // console.log('Gyroscope Yaw: ', gyroscopeYaw);
+  // console.log('Gyroscope Roll: ', gyroscopeRoll);
+  // console.log(accelerationY);
 });
 
 var msg = Buffer.alloc(28);
@@ -161,3 +160,9 @@ msg[31] = 0x00; // Termination byte
 client.send(msg, 26760, 'localhost', (err) => {
   // client.close();
 });
+
+setInterval(() => {
+  client.send(msg, 26760, 'localhost', (err) => {
+    // client.close();
+  });
+}, 6000);

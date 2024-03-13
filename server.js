@@ -1,6 +1,7 @@
 // --------------------creating a udp server --------------------
 const fs = require('fs');
 var udp = require('dgram');
+var crc32 = require('buffer-crc32');
 var decode = require('./make-responses');
 
 
@@ -19,8 +20,17 @@ function readUInt48LE(buffer, offset) {
   return (upper << 32) + lower;
 }
 
+let gyroData = {
+  ax: 0.0,
+  ay: 0.0,
+  az: 0.0,
+  roll: 0.0,
+  pitch: 0.0,
+  yaw: 0.0
+};
+
 // emits on new datagram msg
-server.on('message', function (msg, info) {
+server.on('message', (msg, info) => {
   // console.log('Data received from client : ' + msg.toString());
 
   let event = msg.readUInt8(16); // udpIn[16] - Least significant byte of event type
@@ -29,7 +39,7 @@ server.on('message', function (msg, info) {
   if (event === 0x01) {
     let responses = decode(msg);
     responses.forEach(res => {
-      server.send(res, info.port, 'localhost', function (error) {
+      server.send(res, info.port, 'localhost', (error) => {
         if (error) {
           client.close();
           console.log('Error !!!');
@@ -47,42 +57,19 @@ server.on('message', function (msg, info) {
     let timestamp = readUInt48LE(response, 68);
     let packetNumber = response.readUint16LE(32);
     // gyro data
-    let gyroData = {
-      ax: 0.0,
-      ay: 0.0,
-      az: 0.0,
-      gx: 0.0,
-      gy: 0.0,
-      gz: 0.0
-    }
     try {
       const gd = JSON.parse(fs.readFileSync('gyro-data.json', 'utf8'));
-
-      const offsetTable = {
-        accXI: -2818, // accXI
-        accYI: 2461, // accYI
-        accZI: 1148, // accZI
-        gyrPI: -47, // gyrPI
-        gyrYI: -72, // gyrYI
-        gyrRI: 35, // gyrRI
-      };
-
-      gyroData.ax = gd.ax + 0.0000000000001;
-      gyroData.ay = gd.ay + 0.0000000000001;
-      gyroData.az = (-gd.az) + 0.0000000000001;
-      gyroData.gx = (-gd.gx) + 0.0000000000001;  // roll
-      gyroData.gy = gd.gy + 0.0000000000001;  // pitch
-      gyroData.gz = (-gd.gz) + 0.0000000000001;  // yaw
-      // gyroData.ax = gd.ax + offsetTable.accXI;
-      // gyroData.ay = gd.ay + offsetTable.accYI;
-      // gyroData.az = -gd.az + offsetTable.accZI;
-      // gyroData.gx = -gd.gx + offsetTable.gyrPI;  // roll
-      // gyroData.gy = gd.gy + offsetTable.gyrYI;  // pitch
-      // gyroData.gz = -gd.gz + offsetTable.gyrRI;  // yaw
-      console.log('gyroData:', gyroData);
+      gyroData = gd;
+      // console.log('gyroData:', gyroData);
     } catch (error) {
       // console.log('error:', error);
     }
+    // console.log('gyroData.ax:', gyroData.ax);
+    // console.log('gyroData.ay:', gyroData.ay);
+    // console.log('gyroData.az:', gyroData.az);
+    // console.log('gyroData.pitch:', gyroData.pitch);
+    // console.log('gyroData.yaw:', gyroData.yaw);
+    // console.log('gyroData.roll:', gyroData.roll);
     // Acceleration X
     response.writeFloatLE(gyroData.ax, 76);
     // Acceleration Y
@@ -90,11 +77,15 @@ server.on('message', function (msg, info) {
     // Acceleration Z
     response.writeFloatLE(gyroData.az, 84);
     // Gyroscope Pitch
-    response.writeFloatLE(gyroData.gy, 88);
+    response.writeFloatLE(gyroData.pitch, 88);
     // Gyroscope Yaw
-    response.writeFloatLE(gyroData.gz, 92);
+    response.writeFloatLE(gyroData.yaw, 92);
     // Gyroscope Roll
-    response.writeFloatLE(gyroData.gx, 96);
+    response.writeFloatLE(gyroData.roll, 96);
+
+    // crc
+    response.writeUInt32LE(0, 8);
+    response.writeUInt32LE(crc32.unsigned(response), 8);
 
     server.send(response, info.port, 'localhost', function (error) {
       if (error) {
@@ -104,7 +95,7 @@ server.on('message', function (msg, info) {
         // console.log(`0x02 Sent packet ${packetNumber} at ${timestamp}`);
       }
     });
-  }, 100);
+  }, 20);
   setTimeout(() => {
     clearInterval(id);
   }, 6000);
