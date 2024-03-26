@@ -59,32 +59,10 @@ function writeUInt48LE(buffer, value, offset) {
 
 let packetNumber = 0;
 let before = 0;
-let sinIncrement = 0;
 let microseconds = 0;
 
 
-// real data from evdevhook2
-const data1 = {
-  accelerationX:  0.6759033203125,
-  accelerationY:  -0.156494140625,
-  accelerationZ:  0.1776123046875,
-  gyroscopePitch:  -151.5419921875,
-  gyroscopeYaw:  12.2529296875,
-  gyroscopeRoll:  418.427734375,
-}
-
-const data2 = {
-  accelerationX:  -1.0587158203125,
-  accelerationY:  0.43994140625,
-  accelerationZ:  -0.2640380859375,
-  gyroscopePitch:  51.1865234375,
-  gyroscopeYaw:  7.55859375,
-  gyroscopeRoll:  -244.107421875,
-}
-
-let data = data1;
-
-makeDataResponse = () => {
+makeDataResponse = (gyroData) => {
   let output = Buffer.alloc(100); // already 0x0 as default
   // Magic server string (DSUS)
   output.writeInt8(0x44, 0);
@@ -153,6 +131,7 @@ makeDataResponse = () => {
   output.writeUInt8(0x00, 65); //...
   output.writeUInt8(0x00, 66); // Second touch Y (16 bit)
   output.writeUInt8(0x00, 67); //...
+
   // timestamp
   // micro time passed
   var hrTime = process.hrtime()
@@ -160,61 +139,27 @@ makeDataResponse = () => {
   microseconds += Math.floor((now - before) / 1000);
   before = now;
   writeUInt48LE(output, microseconds, 68);
-  // -- gyro
-  // // Acceleration X
-  // output.writeFloatLE(0, 76);
-  // // Acceleration Y
-  // output.writeFloatLE(0, 80);
-  // // Acceleration Z
-  // output.writeFloatLE(0, 84);
-  // // Gyroscope Pitch
-  // output.writeFloatLE(0, 88);
-  // // Gyroscope Yaw
-  // output.writeFloatLE(0, 92);
-  // // Gyroscope Roll
-  // output.writeFloatLE(0, 96);
 
-
-  // // -- gyro const moving
-  // sinIncrement += 0.001;
-  // let sin = Math.sin(sinIncrement).toFixed(12);
-  // // Acceleration X
-  // output.writeFloatLE(sin, 76);
-  // // Acceleration Y
-  // output.writeFloatLE(sin, 80);
-  // // Acceleration Z
-  // output.writeFloatLE(sin, 84);
-  // // Gyroscope Pitch
-  // output.writeFloatLE(sin * 100, 88);
-  // // Gyroscope Yaw
-  // output.writeFloatLE(sin * 100, 92);
-  // // Gyroscope Roll
-  // output.writeFloatLE(sin * 100, 96);
-  
-  // -- gyro shake
   // Acceleration X
-  output.writeFloatLE(data.accelerationX, 76);
+  output.writeFloatLE(gyroData.ax, 76);
   // Acceleration Y
-  output.writeFloatLE(data.accelerationY, 80);
+  output.writeFloatLE(gyroData.ay, 80);
   // Acceleration Z
-  output.writeFloatLE(data.accelerationZ, 84);
+  output.writeFloatLE(gyroData.az, 84);
   // Gyroscope Pitch
-  output.writeFloatLE(data.gyroscopePitch, 88);
+  output.writeFloatLE(gyroData.pitch, 88);
   // Gyroscope Yaw
-  output.writeFloatLE(data.gyroscopeYaw, 92);
+  output.writeFloatLE(gyroData.yaw, 92);
   // Gyroscope Roll
-  output.writeFloatLE(data.gyroscopeRoll, 96);
-  // switch data
-  if (packetNumber % 80 === 0) {
-    data = data === data1 ? data2 : data1;
-  }
+  output.writeFloatLE(gyroData.roll, 96);
 
+  // crc
   output.writeUInt32LE(crc32.unsigned(output), 8);
 
   return output;
 };
 
-const decode = (msg) => {
+const decode = (msg, gyroData) => {
 
   let responses = [];
 
@@ -239,7 +184,7 @@ const decode = (msg) => {
 
   // “Actual controllers data” response
   if (event === 0x02) {
-    responses.push(makeDataResponse());
+    responses.push(makeDataResponse(gyroData));
   }
 
   return responses;

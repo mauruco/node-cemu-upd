@@ -1,4 +1,5 @@
 const dgram = require('dgram');
+var crc32 = require('buffer-crc32');
 
 // Create a client socket
 const client = dgram.createSocket('udp4');
@@ -12,11 +13,15 @@ function readUInt48LE(buffer, offset = 0) {
 }
 
 client.on('message', (msg, rinfo) => {
+  // console.log('Message from: ', rinfo.address, ' : ', rinfo.port);
+
+  if (msg[16] !== 0x02) return;
+
   // HEADER
   let magicStri8ng = `${String.fromCharCode(msg[0])}${String.fromCharCode(msg[1])}${String.fromCharCode(msg[2])}${String.fromCharCode(msg[3])}`;
   let protocolVersion = msg.readUInt16LE(4);
   let packetLength = msg.readUInt16LE(6);
-  let crc32 = msg.readUInt32LE(8);
+  let crc32sum = msg.readUInt32LE(8);
   let clientServerId = msg.readUInt32LE(12);
   // --HEADER
   let eventType = msg.readUInt32LE(16);
@@ -70,7 +75,10 @@ client.on('message', (msg, rinfo) => {
   // console.log('Magic String: ', magicStri8ng);
   // console.log('Protocol Version: ', protocolVersion);
   // console.log('Packet Length: ', packetLength);
-  // console.log('CRC32: ', crc32);
+  // console.log('CRC32Sum1: ', crc32sum);
+  // // Zero out CRC32 field
+  // msg.writeUInt32LE(0, 8);
+  // console.log('CRC32SUM2: ', crc32.unsigned(msg));
   // console.log('Client Server ID: ', clientServerId);
   // console.log('HEADER <<<<<<');
   // console.log('>>>>>> MSG');
@@ -83,26 +91,27 @@ client.on('message', (msg, rinfo) => {
   // console.log('Battery Status: ', batteryStatus);
   // console.log('Device State: ', deviceState);
   // console.log('Packet Number: ', packetNumber);
-  // console.log('D-Pad: ', dpad);
-  // console.log('Buttons: ', buttons);
-  // console.log('PS Button: ', psButton);
-  // console.log('Touch Button: ', touchButton);
-  // console.log('Left Stick X: ', leftStickX);
-  // console.log('Left Stick Y: ', leftStickY);
-  // console.log('Right Stick X: ', rightStickX);
-  // console.log('Right Stick Y: ', rightStickY);
-  // console.log('Analog D-Pad Left: ', analogDpadLeft);
-  // console.log('Analog D-Pad Down: ', analogDpadDown);
-  // console.log('Analog D-Pad Right: ', analogDpadRight);
-  // console.log('Analog D-Pad Up: ', analogDpadUp);
-  // console.log('Analog Y: ', analogY);
-  // console.log('Analog B: ', analogB);
-  // console.log('Analog A: ', analogA);
-  // console.log('Analog X: ', analogX);
-  // console.log('Analog R1: ', analogR1);
-  // console.log('Analog L1: ', analogL1);
-  // console.log('Analog R2: ', analogR2);
-  // console.log('Analog L2: ', analogL2);
+  // // XBOX LAYOUT
+  // console.log('D-Pad: ', dpad.toString(16)); // UP = 10, LEFT = 80, RIGHT = 20, DOWN = 40, SELECT = 1, START = 8, L3 = 2, R3 = 4
+  // console.log('Buttons: ', buttons.toString(16)); // B = 20, a = 40, x = 80, y = 10, L = 4, R = 8, LT = 1, RT = 2
+  // console.log('PS Button: ', psButton.toString(16)); // 255
+  // console.log('Touch Button: ', touchButton.toString(16)); // 255
+  // console.log('Left Stick X: ', leftStickX); // RIGHT = 255, LEFT = 0
+  // console.log('Left Stick Y: ', leftStickY); // DOWN = 255, UP = 0
+  // console.log('Right Stick X: ', rightStickX); // RIGHT = 255, LEFT = 0
+  // console.log('Right Stick Y: ', rightStickY); // DOWN = 255, UP = 0
+  // console.log('Analog D-Pad Left: ', analogDpadLeft); // left FULL = 255
+  // console.log('Analog D-Pad Down: ', analogDpadDown); // down FULL = 255
+  // console.log('Analog D-Pad Right: ', analogDpadRight); // RIGHT FULL = 255
+  // console.log('Analog D-Pad Up: ', analogDpadUp); // UP FULL = 255
+  // console.log('Analog X: ', analogY); // 255
+  // console.log('Analog A: ', analogB); // 255
+  // console.log('Analog B: ', analogA); // 255
+  // console.log('Analog Y: ', analogX); // 255
+  // console.log('Analog R1: ', analogR1); // 255
+  // console.log('Analog L1: ', analogL1); // 255
+  // console.log('Analog R2: ', analogR2);  // 255
+  // console.log('Analog L2: ', analogL2);  // 255
   // console.log('First Touch Active: ', firstTouchActive);
   // console.log('First Touch ID: ', firstTouchId);
   // console.log('First Touch X: ', firstTouchX);
@@ -115,10 +124,30 @@ client.on('message', (msg, rinfo) => {
   // console.log('Acceleration X: ', accelerationX);
   // console.log('Acceleration Y: ', accelerationY);
   // console.log('Acceleration Z: ', accelerationZ);
-  // console.log('Gyroscope Pitch: ', gyroscopePitch);
-  // console.log('Gyroscope Yaw: ', gyroscopeYaw);
-  // console.log('Gyroscope Roll: ', gyroscopeRoll);
-  // console.log(accelerationY);
+  // console.log('Gyroscope Pitch: ', gyroscopePitch); // z roll
+  // console.log('Gyroscope Yaw: ', gyroscopeYaw); // esq uerda direita
+  // console.log('Gyroscope Roll: ', gyroscopeRoll); // pitch
+
+
+  // PS4 EVDEVHOOK2
+  /* Holding normally, led facing tv
+
+    Yaw (y) left (-) and right (+) like a traktor wheel
+    |
+    |  / Pitch (Z) forward (+) and backward (-)
+    | /  
+    |/_____________ Roll (X) left (-) and right (+)
+
+    Accelerometer  ~= -1 to 1
+    Gyroscope = degrees per second
+    Acceleration Y: ~= -0.96 // Gravity
+  **/
+  // console.log('Acceleration X: ', accelerationX);
+  // console.log('Acceleration Y: ', accelerationY);
+  // console.log('Acceleration Z: ', accelerationZ);
+  // console.log('Gyroscope Pitch: ', gyroscopePitch); // cima e baixo x
+  // console.log('Gyroscope Yaw: ', gyroscopeYaw); // rotation y
+  // console.log('Gyroscope Roll: ', gyroscopeRoll); // direita esquerda z
 });
 
 var msg = Buffer.alloc(28);
@@ -157,12 +186,23 @@ msg[30] = 0x00; // Battery status, (0) = Not applicable
 msg[31] = 0x00; // Termination byte
 
 
-client.send(msg, 26760, 'localhost', (err) => {
+// let ip = 'localhost';
+let ip = '192.168.15.6';
+// let ip = '192.168.15.7';
+
+client.send(msg, 26760, ip, (err) => {
   // client.close();
 });
 
 setInterval(() => {
-  client.send(msg, 26760, 'localhost', (err) => {
+  msg[16] = 0x01;
+  client.send(msg, 26760, ip, (err) => {
+    console.log('send');
     // client.close();
+    msg[16] = 0x02;
+    client.send(msg, 26760, ip, (err) => {
+      console.log('send');
+      // client.close();
+    });
   });
-}, 6000);
+}, 5000);

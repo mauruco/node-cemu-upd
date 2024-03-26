@@ -14,12 +14,6 @@ server.on('error', function (error) {
   server.close();
 });
 
-function readUInt48LE(buffer, offset) {
-  let lower = buffer.readUInt32LE(offset);
-  let upper = buffer.readUInt16LE(offset + 4);
-  return (upper << 32) + lower;
-}
-
 let gyroData = {
   ax: 0.0,
   ay: 0.0,
@@ -31,7 +25,30 @@ let gyroData = {
 
 // emits on new datagram msg
 server.on('message', (msg, info) => {
-  // console.log('Data received from client : ' + msg.toString());
+  console.log('Data received from client : ' + Date.now()  + msg.toString());
+
+    // HEADER
+    let magicStri8ng = `${String.fromCharCode(msg[0])}${String.fromCharCode(msg[1])}${String.fromCharCode(msg[2])}${String.fromCharCode(msg[3])}`;
+    let protocolVersion = msg.readUInt16LE(4);
+    let packetLength = msg.readUInt16LE(6);
+    let crc32sum = msg.readUInt32LE(8);
+    let clientServerId = msg.readUInt32LE(12);
+    // --HEADER
+    let eventType = msg.readUInt32LE(16);
+
+    console.log('>>>>>> HEADER');
+    console.log('Magic String: ', magicStri8ng);
+    console.log('Protocol Version: ', protocolVersion);
+    console.log('Packet Length: ', packetLength);
+    console.log('CRC32Sum: ', crc32sum);
+    // Zero out CRC32 field
+    msg.writeUInt32LE(0, 8);
+    console.log('CRC32SUM2: ', crc32.unsigned(msg));
+    console.log('Client Server ID: ', clientServerId);
+    console.log('HEADER <<<<<<');
+    console.log('>>>>>> MSG');
+    console.log('Event Type: ', eventType.toString(16));
+    console.log('msg.length: ', msg.length);
 
   let event = msg.readUInt8(16); // udpIn[16] - Least significant byte of event type
 
@@ -53,46 +70,23 @@ server.on('message', (msg, info) => {
 
   // 1. send for 6 seconds
   let id = setInterval(() => {
-    let response = decode(msg)[0];
-    let timestamp = readUInt48LE(response, 68);
-    let packetNumber = response.readUint16LE(32);
+    
     // gyro data
     try {
       const gd = JSON.parse(fs.readFileSync('gyro-data.json', 'utf8'));
       gyroData = gd;
-      // console.log('gyroData:', gyroData);
     } catch (error) {
       // console.log('error:', error);
     }
-    // console.log('gyroData.ax:', gyroData.ax);
-    // console.log('gyroData.ay:', gyroData.ay);
-    // console.log('gyroData.az:', gyroData.az);
-    // console.log('gyroData.pitch:', gyroData.pitch);
-    // console.log('gyroData.yaw:', gyroData.yaw);
-    // console.log('gyroData.roll:', gyroData.roll);
-    // Acceleration X
-    response.writeFloatLE(gyroData.ax, 76);
-    // Acceleration Y
-    response.writeFloatLE(gyroData.ay, 80);
-    // Acceleration Z
-    response.writeFloatLE(gyroData.az, 84);
-    // Gyroscope Pitch
-    response.writeFloatLE(gyroData.pitch, 88);
-    // Gyroscope Yaw
-    response.writeFloatLE(gyroData.yaw, 92);
-    // Gyroscope Roll
-    response.writeFloatLE(gyroData.roll, 96);
 
-    // crc
-    response.writeUInt32LE(0, 8);
-    response.writeUInt32LE(crc32.unsigned(response), 8);
+    let response = decode(msg, gyroData)[0];
 
     server.send(response, info.port, 'localhost', function (error) {
       if (error) {
         client.close();
         console.log('Error !!!');
       } else {
-        // console.log(`0x02 Sent packet ${packetNumber} at ${timestamp}`);
+        //
       }
     });
   }, 20);
